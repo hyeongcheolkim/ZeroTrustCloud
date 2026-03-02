@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>ZTNA Cloud Terminal</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
+    <style>
+        body {
+            padding: 20px;
+            background-color: #f8f9fa;
+        }
+
+
+            width: 100%;
+            height: 600px;
+            padding: 10px;
+            background-color: #000;
+            display: none;
+            margin-top: 20px;
+            border-radius: 5px;
+        }
+
+        .section {
+            display: none;
+            margin-top: 20px;
+        }
+
+        .card {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<link rel="icon" href="data:;base64,iVBORw0KGgo=">
+
+<body>
+
+    <div class="container">
+        <h1 class="mb-4">ZTNA Cloud Terminal Dashboard</h1>
+
+        <div id="login-section" class="section" style="display: block;">
+            <button id="login-btn" class="btn btn-primary">Login with Keycloak</button>
+        </div>
+
+        <div id="dashboard-section" class="section">
+            <div class="row">
+                <div class="col-md-8">
+                    <h3>Welcome, <span id="username-display"></span></h3>
+                </div>
+                <div class="col-md-4 text-end">
+                    <button id="logout-btn" class="btn btn-secondary">Logout</button>
+                </div>
+            </div>
+
+            <div class="card mt-4">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">My Accessible Servers</h5>
+                    <button id="refresh-servers-btn" class="btn btn-sm btn-outline-primary">Refresh</button>
+                </div>
+                <div class="card-body">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Server ID</th>
+                                <th>Name</th>
+                                <th>Status</th>
+                                <th>Access Type</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="servers-table-body">
+                            
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="admin-section" class="section card mt-4 border-danger">
+            <div class="card-header bg-danger text-white">
+                <h5 class="mb-0">Admin Controls</h5>
+            </div>
+            <div class="card-body">
+                <h6>Provision New Server</h6>
+                <div class="input-group mb-4">
+                    <input type="text" id="new-server-name" class="form-control"
+                        placeholder="Server Name (e.g., dev-db)">
+                    <button class="btn btn-danger" id="provision-btn">Provision Pod</button>
+                </div>
+
+                <hr />
+                <h6 class="mt-3">Grant Server Access</h6>
+                <div class="input-group mb-3">
+                    <select class="form-select" id="grant-username">
+                        <option value="">Select Username...</option>
+                    </select>
+                    <select class="form-select" id="grant-server-id">
+                        <option value="">Select Server...</option>
+                    </select>
+                    <select class="form-select" id="grant-access-type">
+                        <option value="FULL_ACCESS">Full Access</option>
+                        <option value="READ_ONLY">Read Only</option>
+                    </select>
+                    <button class="btn btn-danger" id="grant-btn">Grant</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="terminal-container"></div>
+    </div>
+
+    
+    <script src="https://cdn.jsdelivr.net/npm/keycloak-js@24.0.1/dist/keycloak.min.js"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+    
+    <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1.5.2/dist/sockjs.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:8081';
+        let keycloak = null;
+        let stompClient = null;
+        let currentTerminal = null;
+        let terminalFitAddon = null;
+
+
+        function initKeycloak() {
+
+            keycloak = new Keycloak({
+                url: 'http://localhost:8080/',
+                realm: 'ztna-realm',
+                clientId: 'ztna-frontend'
+            });
+
+            keycloak.init({ onLoad: 'check-sso', pkceMethod: 'S256' }).then(function (authenticated) {
+                if (authenticated) {
+                    showDashboard();
+                    syncUserWithBackend();
+                } else {
+                    document.getElementById('login-section').style.display = 'block';
+                }
+            }).catch(function () {
+                alert('Failed to initialize Keycloak');
+            });
+        }
+
+
+        function syncUserWithBackend() {
+            fetch(`${API_BASE_URL}/api/auth/login-sync`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': 'Bearer ' + keycloak.token
+                }
+            }).then(res => {
+                if (res.ok) {
+                    console.log("User synced successfully");
+                    loadServers();
+                }
+            });
+        }
+
+
+        function loadServers() {
+            fetch(`${API_BASE_URL}/api/user/servers`, {
+                headers: { 'Authorization': 'Bearer ' + keycloak.token }
+            })
+                .then(res => res.json())
+                .then(data => {
+                    const tbody = document.getElementById('servers-table-body');
+                    tbody.innerHTML = '';
+                    data.forEach(server => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `
+                    <td>${server.serverId}</td>
+                    <td>${server.serverName}</td>
+                    <td><span class="badge bg-${server.status === 'RUNNING' ? 'success' : 'warning'}">${server.status}</span></td>
+                    <td>${server.accessType}</td>
+                    <td>
+                        <button class="btn btn-sm btn-success" onclick="connectTerminal(${server.serverId})" ${server.status !== 'RUNNING' ? 'disabled' : ''}>Connect Terminal</button>
+                    </td>
+                `;
+                        tbody.appendChild(tr);
+                    });
+                });
+
+
+            if (keycloak.hasRealmRole('ADMIN')) {
+                document.getElementById('admin-section').style.display = 'block';
+                loadAdminDropdowns();
+            }
+        }
+
+
+        function connectTerminal(serverId) {
+            document.getElementById('terminal-container').style.display = 'block';
+
+
+            if (currentTerminal) {
+                currentTerminal.dispose();
+                stompClient.disconnect();
+            }
+
+
+            currentTerminal = new Terminal({
+                cursorBlink: true,
+                theme: { background: '#000000' }
+            });
+            terminalFitAddon = new FitAddon.FitAddon();
+            currentTerminal.loadAddon(terminalFitAddon);
+            currentTerminal.open(document.getElementById('terminal-container'));
+            terminalFitAddon.fit();
+
+            currentTerminal.writeln(`Connecting to WebSocket for Server #${serverId}...`);
+
+
+
+            const wsUrl = `ws://localhost:8081/ws-terminal`;
+            const socket = new WebSocket(wsUrl);
+            stompClient = Stomp.over(socket);
+
+
+            stompClient.debug = null;
+
+            stompClient.connect({ 'Authorization': 'Bearer ' + keycloak.token }, function (frame) {
+                currentTerminal.writeln('\x1b[32mConnected!\x1b[0m\r\n');
+
+
+                stompClient.subscribe(`/topic/terminal/${serverId}`, function (message) {
+                    const data = JSON.parse(message.body);
+                    if (data.output) {
+                        currentTerminal.write(data.output);
+                    }
+                });
+
+
+                currentTerminal.onData(function (data) {
+                    stompClient.send(`/app/terminal/${serverId}/input`, {}, JSON.stringify({ 'input': data }));
+                });
+
+
+                stompClient.send(`/app/terminal/${serverId}/start`, {}, {});
+
+
+                stompClient.send(`/app/terminal/${serverId}/input`, {}, JSON.stringify({ 'input': '\n' }));
+
+            }, function (error) {
+                currentTerminal.writeln(`\x1b[31mWebSocket Error: ${error}\x1b[0m`);
+            });
+        }
+
+
+        function provisionServer() {
+            const name = document.getElementById('new-server-name').value;
+            if (!name) return;
+
+            fetch(`${API_BASE_URL}/api/admin/servers`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + keycloak.token
+                },
+                body: JSON.stringify({ name: name, description: 'Created via Web UI' })
+            })
+                .then(res => {
+                    if (res.ok) {
+                        alert('Provisioning initiated!');
+                        loadServers();
+                        loadAdminDropdowns();
+                    } else {
+                        alert('Failed to provision server');
+                    }
+                });
+        }
+
+
+        function loadAdminDropdowns() {
+
+            fetch(`${API_BASE_URL}/api/admin/users`, {
+                headers: { 'Authorization': 'Bearer ' + keycloak.token }
+            })
+                .then(res => res.json())
+                .then(users => {
+                    const userSelect = document.getElementById('grant-username');
+                    userSelect.innerHTML = '<option value="">Select Username...</option>';
+                    users.forEach(username => {
+                        const option = document.createElement('option');
+                        option.value = username;
+                        option.text = username;
+                        userSelect.appendChild(option);
+                    });
+                });
+
+
+            fetch(`${API_BASE_URL}/api/admin/servers`, {
+                headers: { 'Authorization': 'Bearer ' + keycloak.token }
+            })
+                .then(res => res.json())
+                .then(servers => {
+                    const serverSelect = document.getElementById('grant-server-id');
+                    serverSelect.innerHTML = '<option value="">Select Server...</option>';
+                    servers.forEach(server => {
+                        const option = document.createElement('option');
+                        option.value = server.id;
+                        option.text = `ID: ${server.id} (${server.name})`;
+                        serverSelect.appendChild(option);
+                    });
+                });
+        }
+
+
+        function grantAccess() {
+            const username = document.getElementById('grant-username').value;
+            const serverId = document.getElementById('grant-server-id').value;
+            const accessType = document.getElementById('grant-access-type').value;
+
+            if (!username || !serverId) {
+                alert('Please enter both Username and Server ID');
+                return;
+            }
+
+            fetch(`${API_BASE_URL}/api/admin/access/grant`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': 'Bearer ' + keycloak.token
+                },
+                body: JSON.stringify({
+                    username: username,
+                    serverInstanceId: parseInt(serverId),
+                    accessType: accessType
+                })
+            })
+                .then(res => {
+                    if (res.ok) {
+                        alert(`Successfully granted ${accessType} to ${username}!`);
+
+                        document.getElementById('grant-username').value = '';
+                        document.getElementById('grant-server-id').value = '';
+                    } else {
+                        alert('Failed to grant access. Please check user or server ID.');
+                    }
+                });
+        }
+
+
+        function showDashboard() {
+            document.getElementById('login-section').style.display = 'none';
+            document.getElementById('dashboard-section').style.display = 'block';
+            document.getElementById('username-display').innerText = keycloak.tokenParsed.preferred_username;
+        }
+
+
+        document.getElementById('login-btn').addEventListener('click', () => {
+            keycloak.login();
+        });
+
+        document.getElementById('logout-btn').addEventListener('click', () => {
+            keycloak.logout();
+        });
+
+        document.getElementById('refresh-servers-btn').addEventListener('click', () => {
+            if (keycloak.authenticated) loadServers();
+        });
+
+        document.getElementById('provision-btn').addEventListener('click', provisionServer);
+        document.getElementById('grant-btn').addEventListener('click', grantAccess);
+
+
+        window.addEventListener('resize', () => {
+            if (terminalFitAddon) {
+                terminalFitAddon.fit();
+            }
+        });
+
+
+        initKeycloak();
+
+    </script>
+</body>
+
+</html>

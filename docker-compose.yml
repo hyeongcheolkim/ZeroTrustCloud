@@ -1,0 +1,22 @@
+version: "3.8"
+
+services:
+  keycloak:
+    image: quay.io/keycloak/keycloak:24.0.1
+    container_name: ztna-keycloak
+    environment:
+      - KEYCLOAK_ADMIN=admin
+      - KEYCLOAK_ADMIN_PASSWORD=admin
+    command: start-dev
+    ports:
+      - "8080:8080"
+    #volumes:
+      # 로컬에 데이터를 보존하고 싶다면 주석을 해제하세요.
+      # - ./keycloak-data:/opt/keycloak/data
+
+  redis:
+    image: redis:7-alpine
+    container_name: ztna-redis
+    ports:
+      - "6379:6379"
+    restart: always
