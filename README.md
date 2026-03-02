@@ -2,8 +2,12 @@
 
 클라우드 멀티 테넌트 환경에서 관리자(Admin)가 가상 인스턴스(Kubernetes Pod)를 동적으로 프로비저닝하고, 인가된 사용자(User)가 웹 브라우저를 통해 안전하게 SSH 터미널에 접속할 수 있도록 지원하는 **Zero Trust Network Access (ZTNA) 기반 Web SSH 플랫폼**입니다.
 
+## 시연장면
+![시연장면](https://github.com/user-attachments/assets/aaa65c8f-f05c-4d08-884c-52fb2c34cacc)
+
+
 ## 🚀 아키텍처 및 핵심 로직
-- **단일 진입점 제어:** 사용자는 오직 Spring Cloud Gateway(웹 서버)를 통해서만 터미널에 접근할 수 있으며, K8s 내부의 컨테이너와 직접 통신할 수 없습니다.
+- **단일 진입점 제어:** 사용자는 오직 Spring Server(웹 서버)를 통해서만 터미널에 접근할 수 있으며, K8s 내부의 컨테이너와 직접 통신할 수 없습니다.
 - **동적 프로비저닝 (Fabric8):** 관리자가 서버 생성을 요청하면 Kubernetes API를 호출하여 즉시 Ubuntu 기반 터미널 Pod를 생성합니다.
 - **Web SSH 스트리밍:** 프론트엔드(xterm.js)와 백엔드는 WebSocket(STOMP)으로 연결되며, 백엔드와 K8s Pod 사이는 Fabric8 Exec Watch를 통해 터미널 I/O를 스트리밍합니다.
 - **분산 환경 대응 (Redis Pub/Sub):** 터미널의 입력(Input) 스트림을 Redis Pub/Sub으로 관리하여, 다중 인스턴스 환경에서도 안정적인 세션 유지가 가능하도록 설계되었습니다.
