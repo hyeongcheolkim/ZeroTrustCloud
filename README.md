@@ -56,9 +56,9 @@
 - 로컬 Kubernetes 환경 (Docker Desktop 내장 K8s 또는 Minikube) 구동 중일 것
 
 ### 2. 인프라 실행 (Keycloak & Redis)
-프로젝트 루트 디렉토리에서 `docker-compose`를 사용하여 Keycloak(인증 서버)과 Redis(Pub/Sub)를 실행합니다.
+- 프로젝트 루트 디렉토리에서 `docker-compose`를 사용하여 Keycloak(인증 서버)과 Redis(Pub/Sub)를 실행합니다.
 ```bash
 docker-compose up -d
 ```
-메인 spring 백엔드 서버를 실행후 :8080포트의 keycloak에 접속해 계정과 권한설정을 합니다
-:8081포트의 /index.html에 접속합니다
+- 메인 spring 백엔드 서버를 실행후 :8080포트의 keycloak에 접속해 계정과 권한설정을 합니다
+- :8081포트의 /index.html에 접속합니다
