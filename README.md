@@ -60,4 +60,5 @@
 ```bash
 docker-compose up -d
 ```
-메인 spring 백엔드 서버를 실행후 :8081포트의 /index.html에 접속합니다
+메인 spring 백엔드 서버를 실행후 :8080포트의 keycloak에 접속해 계정과 권한설정을 합니다
+:8081포트의 /index.html에 접속합니다
