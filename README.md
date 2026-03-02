@@ -1,4 +1,4 @@
-# 🛡️ ZTNA Cloud Terminal
+# 🛡️ Zero Trust Cloud Terminal
 
 클라우드 멀티 테넌트 환경에서 관리자(Admin)가 가상 인스턴스(Kubernetes Pod)를 동적으로 프로비저닝하고, 인가된 사용자(User)가 웹 브라우저를 통해 안전하게 SSH 터미널에 접속할 수 있도록 지원하는 **Zero Trust Network Access (ZTNA) 기반 Web SSH 플랫폼**입니다.
 
