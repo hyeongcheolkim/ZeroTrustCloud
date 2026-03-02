@@ -22,7 +22,7 @@ import java.util.List;
 @Slf4j
 @RestController
 @RequestMapping("/api/user")
-@PreAuthorize("hasAnyRole('USER', 'ADMIN')")
+@PreAuthorize("hasAny('USER', 'ADMIN')")
 @RequiredArgsConstructor
 public class UserController {
 

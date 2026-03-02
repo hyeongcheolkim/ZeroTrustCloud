@@ -13,7 +13,7 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          issuer-uri: http:localhost:8080/realms/ztna-realm
+          issuer-uri: http://localhost:8080/realms/ztna-realm
 
   data:
     redis:
@@ -36,7 +36,6 @@ spring:
 
 kubernetes:
   config:
-
     master-url: ""
     namespace: ztna-terminals
     token: ""

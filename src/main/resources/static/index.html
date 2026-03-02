@@ -3,10 +3,10 @@
 
 <head>
     <meta charset="UTF-8">
-    <title>ZTNA Cloud Terminal</title>
-    
+    <title>Zero Trust Cloud Terminal</title>
+
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    
+
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css" />
     <style>
         body {
@@ -15,13 +15,13 @@
         }
 
 
-            width: 100%;
-            height: 600px;
-            padding: 10px;
-            background-color: #000;
-            display: none;
-            margin-top: 20px;
-            border-radius: 5px;
+        width: 100%;
+        height: 600px;
+        padding: 10px;
+        background-color: #000;
+        display: none;
+        margin-top: 20px;
+        border-radius: 5px;
         }
 
         .section {
@@ -72,7 +72,7 @@
                             </tr>
                         </thead>
                         <tbody id="servers-table-body">
-                            
+
                         </tbody>
                     </table>
                 </div>
@@ -112,12 +112,12 @@
         <div id="terminal-container"></div>
     </div>
 
-    
+
     <script src="https://cdn.jsdelivr.net/npm/keycloak-js@24.0.1/dist/keycloak.min.js"></script>
-    
+
     <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
-    
+
     <script src="https://cdn.jsdelivr.net/npm/sockjs-client@1.5.2/dist/sockjs.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
 
@@ -143,6 +143,9 @@
                     syncUserWithBackend();
                 } else {
                     document.getElementById('login-section').style.display = 'block';
+                    document.getElementById('dashboard-section').style.display = 'none';
+                    document.getElementById('admin-section').style.display = 'none';
+                    document.getElementById('terminal-container').style.display = 'none';
                 }
             }).catch(function () {
                 alert('Failed to initialize Keycloak');
@@ -188,10 +191,11 @@
                     });
                 });
 
-
-            if (keycloak.hasRealmRole('ADMIN')) {
+            if (keycloak.hasRealmRole('admin') || keycloak.hasRealmRole('ADMIN')) {
                 document.getElementById('admin-section').style.display = 'block';
                 loadAdminDropdowns();
+            } else {
+                document.getElementById('admin-section').style.display = 'none';
             }
         }
 
@@ -356,11 +360,11 @@
 
 
         document.getElementById('login-btn').addEventListener('click', () => {
-            keycloak.login();
+            keycloak.login({ redirectUri: API_BASE_URL });
         });
 
         document.getElementById('logout-btn').addEventListener('click', () => {
-            keycloak.logout();
+            keycloak.logout({ redirectUri: window.location.origin });
         });
 
         document.getElementById('refresh-servers-btn').addEventListener('click', () => {
